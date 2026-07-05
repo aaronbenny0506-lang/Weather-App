@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="weather-card">
+    <div class="search-box">
+      <input type="text" id="city-input" placeholder="Enter city name..." autocomplete="off">
+      <button id="search-btn">🔍</button>
+    </div>
+
+    <div id="error-message" class="error-msg">City not found. Please try again!</div>
+
+    <div id="weather-display" class="weather-content">
+      <h2 id="location">London, GB</h2>
+      <div class="main-info">
+        <img id="weather-icon" src="https://openweathermap.org/img/wn/10d@2x.png" alt="Weather Condition">
+        <span id="temperature">15°C</span>
+      </div>
+      <p id="description">Moderate Rain</p>
+
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <span class="icon">💧</span>
+          <div>
+            <p class="metric-val" id="humidity">68%</p>
+            <p class="metric-label">Humidity</p>
+          </div>
+        </div>
+        <div class="metric-item">
+          <span class="icon">💨</span>
+          <div>
+            <p class="metric-val" id="wind-speed">4.2 m/s</p>
+            <p class="metric-label">Wind Speed</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
