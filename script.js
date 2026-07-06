@@ -1,5 +1,5 @@
 // REPLACE 'YOUR_OPENWEATHER_API_KEY_HERE' WITH YOUR ACTUAL API KEY FROM OPENWEATHER
-const API_KEY = 'YOUR_OPENWEATHER_API_KEY_HERE'; 
+const API_KEY = '478c6b41d51efdde9760977352062a45'; 
 
 const searchBtn = document.getElementById('search-btn');
 const cityInput = document.getElementById('city-input');
