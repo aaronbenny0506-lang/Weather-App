@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skyline — Weather Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --panel: rgba(255,255,255,0.14);
+    --panel-solid: #ffffff;
+    --ink: #1c2430;
+    --ink-soft: #526073;
+    --line: rgba(255,255,255,0.28);
+    --accent: #ffd166;
+    --error: #ff6b6b;
+    --error-bg: #fdeaea;
+    --focus: #ffd166;
+    --sky-1: #4a7fd6;
+    --sky-2: #7fa8e8;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:'Space Grotesk', sans-serif;
+    color:#fff;
+    background: linear-gradient(180deg, var(--sky-1), var(--sky-2));
+    transition: background 1s ease;
+    padding: 2rem 1rem 3rem;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  /* weather condition backgrounds */
+  body.clear{ --sky-1:#3f7fe0; --sky-2:#8fc4f0; }
+  body.clouds{ --sky-1:#6b7a8f; --sky-2:#a3b1c2; }
+  body.rain{ --sky-1:#37475c; --sky-2:#5c7186; }
+  body.thunderstorm{ --sky-1:#1e2530; --sky-2:#3a4453; }
+  body.snow{ --sky-1:#7d97b8; --sky-2:#dbe6f0; }
+  body.mist{ --sky-1:#7c8a92; --sky-2:#b6c1c7; }
+  body.night{ --sky-1:#0d1a33; --sky-2:#1f3459; }
+
+  .sky-fx{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+  .cloud{
+    position:absolute;
+    background: rgba(255,255,255,0.35);
+    border-radius:50%;
+    filter: blur(1px);
+    animation: drift linear infinite;
+  }
+  @keyframes drift{
+    from{ transform: translateX(-20vw); }
+    to{ transform: translateX(120vw); }
+  }
+  .raindrop{
+    position:absolute;
+    width:2px; height:14px;
+    background: rgba(255,255,255,0.5);
+    top:-20px;
+    animation: fall linear infinite;
+  }
+  @keyframes fall{
+    to{ transform: translateY(110vh); }
+  }
+  .snowflake{
+    position:absolute;
+    width:6px; height:6px;
+    background: rgba(255,255,255,0.85);
+    border-radius:50%;
+    top:-10px;
+    animation: snowfall linear infinite;
+  }
+  @keyframes snowfall{
+    to{ transform: translateY(110vh) translateX(20px); }
+  }
+
+  .wrap{ max-width: 920px; margin:0 auto; position:relative; z-index:1; }
+
+  header.top{ text-align:center; margin-bottom:1.8rem; }
+  header.top .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.68rem;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color: rgba(255,255,255,0.75);
+    margin-bottom:.5rem;
+  }
+  header.top h1{
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    margin:0;
+    font-weight:700;
+  }
+
+  .search-row{
+    display:flex;
+    gap:.6rem;
+    max-width: 560px;
+    margin: 1.5rem auto 0;
+    flex-wrap:wrap;
+  }
+  .search-row input[type="text"]{
+    flex:1;
+    min-width:180px;
+    padding:.8rem 1rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--line);
+    background: rgba(255,255,255,0.16);
+    color:#fff;
+    font-family:'Space Grotesk', sans-serif;
+    font-size:.95rem;
+  }
+  .search-row input::placeholder{ color: rgba(255,255,255,0.7); }
+  .search-row input:focus{ outline:2px solid var(--focus); outline-offset:1px; background: rgba(255,255,255,0.22); }
+  .search-row button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.8rem;
+    padding:.8rem 1.1rem;
+    border-radius:8px;
+    border: none;
+    cursor:pointer;
+  }
+  .search-row .go-btn{ background: var(--accent); color:#3a2c00; font-weight:600; }
+  .search-row .go-btn:hover{ background:#ffdb80; }
+  .search-row .geo-btn{ background: rgba(255,255,255,0.18); color:#fff; border:1.5px solid var(--line); }
+  .search-row .geo-btn:hover{ background: rgba(255,255,255,0.28); }
+  button:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+
+  .unit-toggle{
+    display:flex; justify-content:center; gap:.4rem;
+    margin-top: .9rem;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.75rem;
+  }
+  .unit-toggle button{
+    background: rgba(255,255,255,0.14);
+    border: 1.5px solid var(--line);
+    color:#fff;
+    padding:.35rem .8rem;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .unit-toggle button.active{ background: var(--accent); color:#3a2c00; font-weight:600; border-color: var(--accent); }
+
+  #apiKeyBanner{
+    max-width: 620px;
+    margin: 1.4rem auto 0;
+    background: rgba(255,255,255,0.16);
+    border: 1.5px dashed var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    font-size:.85rem;
+    line-height:1.55;
+  }
+  #apiKeyBanner input{
+    width:100%;
+    margin-top:.6rem;
+    padding:.6rem .8rem;
+    border-radius:6px;
+    border:1.5px solid var(--line);
+    background: rgba(255,255,255,0.9);
+    color:#1c2430;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.82rem;
+  }
+  #apiKeyBanner .save-key-btn{
+    margin-top:.6rem;
+    background: var(--accent);
+    color:#3a2c00;
+    border:none;
+    padding:.5rem .9rem;
+    border-radius:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.78rem;
+    font-weight:600;
+    cursor:pointer;
+  }
+  #apiKeyBanner a{ color: var(--accent); }
+
+  .status-msg{
+    text-align:center;
+    margin-top:1.2rem;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.85rem;
+    padding:.7rem 1rem;
+    border-radius:8px;
+    max-width:560px;
+    margin-left:auto; margin-right:auto;
+    display:none;
+  }
+  .status-msg.show{ display:block; }
+  .status-msg.error{ background: var(--error-bg); color:#7a2424; }
+  .status-msg.loading{ background: rgba(255,255,255,0.18); color:#fff; }
+
+  .current-card{
+    display:none;
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 2rem 1.8rem;
+    margin-top: 1.8rem;
+    text-align:center;
+  }
+  .current-card.show{ display:block; }
+  .current-card .city{
+    font-size:1.5rem;
+    font-weight:600;
+    margin-bottom:.2rem;
+  }
+  .current-card .date{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.78rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom:1.2rem;
+  }
+  .current-main{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:1rem;
+    flex-wrap:wrap;
+  }
+  .current-main .icon{ width:90px; height:90px; }
+  .current-main .temp{
+    font-size: 3.6rem;
+    font-weight:700;
+    line-height:1;
+  }
+  .current-main .desc{
+    font-size:1.05rem;
+    text-transform:capitalize;
+    color: rgba(255,255,255,0.9);
+  }
+  .current-details{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: .9rem;
+    margin-top:1.6rem;
+    max-width: 560px;
+    margin-left:auto; margin-right:auto;
+  }
+  .detail-chip{
+    background: rgba(255,255,255,0.12);
+    border-radius:8px;
+    padding:.7rem .5rem;
+  }
+  .detail-chip .k{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.62rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color: rgba(255,255,255,0.75);
+    margin-bottom:.25rem;
+  }
+  .detail-chip .v{ font-size:1.05rem; font-weight:600; }
+
+  .forecast-section{ display:none; margin-top: 1.8rem; }
+  .forecast-section.show{ display:block; }
+  .forecast-section h2{
+    font-size: 1.1rem;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    margin-bottom: .9rem;
+    color: rgba(255,255,255,0.85);
+  }
+  .forecast-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: .8rem;
+  }
+  .forecast-day{
+    background: var(--panel);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem .7rem;
+    text-align:center;
+  }
+  .forecast-day .day-name{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.7rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color: rgba(255,255,255,0.8);
+    margin-bottom:.4rem;
+  }
+  .forecast-day img{ width:48px; height:48px; }
+  .forecast-day .temps{ font-size:.95rem; margin-top:.3rem; }
+  .forecast-day .temps .hi{ font-weight:700; }
+  .forecast-day .temps .lo{ color: rgba(255,255,255,0.7); margin-left:.3rem; }
+  .forecast-day .desc{
+    font-size:.68rem;
+    text-transform:capitalize;
+    color: rgba(255,255,255,0.75);
+    margin-top:.2rem;
+  }
+
+  .recent-row{
+    margin-top:1.2rem;
+    display:flex;
+    gap:.5rem;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .recent-chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.72rem;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid var(--line);
+    color:#fff;
+    padding:.35rem .8rem;
+    border-radius: 20px;
+    cursor:pointer;
+  }
+  .recent-chip:hover{ background: rgba(255,255,255,0.24); }
+
+  footer.hint{
+    text-align:center;
+    margin-top:2.2rem;
+    font-size:.72rem;
+    color: rgba(255,255,255,0.6);
+  }
+</style>
+</head>
+<body>
+
+<div class="sky-fx" id="skyFx"></div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Weather App Challenge</div>
+    <h1>🌤 Skyline Forecast</h1>
+  </header>
+
+  <div id="apiKeyBanner">
+    <div><strong>One-time setup:</strong> this app pulls live data from OpenWeather, so it needs an API key to work.</div>
+    <div>Get a free key at <a href="https://openweathermap.org/api" target="_blank" rel="noreferrer">openweathermap.org/api</a> (sign up → API keys tab), then paste it below. It's saved only in your browser.</div>
+    <input type="text" id="apiKeyInput" placeholder="Paste your OpenWeather API key here">
+    <button class="save-key-btn" id="saveKeyBtn" type="button">Save key</button>
+  </div>
+
+  <form class="search-row" id="searchForm">
+    <input type="text" id="cityInput" placeholder="Search for a city…" autocomplete="off">
+    <button class="go-btn" type="submit">Search</button>
+    <button class="geo-btn" type="button" id="geoBtn">📍 My location</button>
+  </form>
+
+  <div class="unit-toggle">
+    <button id="unitC" class="active" type="button">°C</button>
+    <button id="unitF" type="button">°F</button>
+  </div>
+
+  <div class="recent-row" id="recentRow"></div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="current-card" id="currentCard">
+    <div class="city" id="cityName">—</div>
+    <div class="date" id="dateNow">—</div>
+    <div class="current-main">
+      <img class="icon" id="currentIcon" src="" alt="">
+      <div>
+        <div class="temp" id="currentTemp">—°</div>
+        <div class="desc" id="currentDesc">—</div>
+      </div>
+    </div>
+    <div class="current-details">
+      <div class="detail-chip"><div class="k">Feels like</div><div class="v" id="feelsLike">—</div></div>
+      <div class="detail-chip"><div class="k">Humidity</div><div class="v" id="humidity">—</div></div>
+      <div class="detail-chip"><div class="k">Wind</div><div class="v" id="wind">—</div></div>
+      <div class="detail-chip"><div class="k">Pressure</div><div class="v" id="pressure">—</div></div>
+    </div>
+  </div>
+
+  <div class="forecast-section" id="forecastSection">
+    <h2>5-Day Forecast</h2>
+    <div class="forecast-grid" id="forecastGrid"></div>
+  </div>
+
+  <footer class="hint">Data from OpenWeather · Temperatures update live based on your chosen units.</footer>
+</div>
+
+<script>
+(function(){
+  const API_KEY_STORAGE = 'skyline-weather-api-key';
+  const RECENT_STORAGE = 'skyline-weather-recent';
+  const UNIT_STORAGE = 'skyline-weather-unit';
+
+  let apiKey = localStorage.getItem(API_KEY_STORAGE) || '';
+  let unit = localStorage.getItem(UNIT_STORAGE) || 'metric'; // metric = C, imperial = F
+  let recent = JSON.parse(localStorage.getItem(RECENT_STORAGE) || '[]');
+  let lastQuery = null; // {type: 'city'|'coords', value}
+
+  const apiKeyBanner = document.getElementById('apiKeyBanner');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const statusMsg = document.getElementById('statusMsg');
+  const currentCard = document.getElementById('currentCard');
+  const forecastSection = document.getElementById('forecastSection');
+  const skyFx = document.getElementById('skyFx');
+
+  if(apiKey){
+    apiKeyInput.value = apiKey;
+    apiKeyBanner.style.display = 'none';
+  }
+
+  document.getElementById('saveKeyBtn').addEventListener('click', () => {
+    const val = apiKeyInput.value.trim();
+    if(!val){ showStatus('Please paste a valid API key.', 'error'); return; }
+    apiKey = val;
+    localStorage.setItem(API_KEY_STORAGE, apiKey);
+    apiKeyBanner.style.display = 'none';
+    showStatus('API key saved. Try searching for a city!', 'loading');
+    setTimeout(() => hideStatus(), 2000);
+  });
+
+  function showStatus(msg, type){
+    statusMsg.textContent = msg;
+    statusMsg.className = 'status-msg show ' + type;
+  }
+  function hideStatus(){
+    statusMsg.className = 'status-msg';
+  }
+
+  function renderRecent(){
+    const row = document.getElementById('recentRow');
+    row.innerHTML = '';
+    recent.forEach(city => {
+      const chip = document.createElement('button');
+      chip.className = 'recent-chip';
+      chip.type = 'button';
+      chip.textContent = city;
+      chip.addEventListener('click', () => fetchByCity(city));
+      row.appendChild(chip);
+    });
+  }
+  renderRecent();
+
+  function addRecent(city){
+    recent = [city, ...recent.filter(c => c.toLowerCase() !== city.toLowerCase())].slice(0, 5);
+    localStorage.setItem(RECENT_STORAGE, JSON.stringify(recent));
+    renderRecent();
+  }
+
+  // ---- unit toggle ----
+  const unitCBtn = document.getElementById('unitC');
+  const unitFBtn = document.getElementById('unitF');
+  function setUnit(newUnit){
+    unit = newUnit;
+    localStorage.setItem(UNIT_STORAGE, unit);
+    unitCBtn.classList.toggle('active', unit === 'metric');
+    unitFBtn.classList.toggle('active', unit === 'imperial');
+    if(lastQuery) refetch();
+  }
+  unitCBtn.addEventListener('click', () => setUnit('metric'));
+  unitFBtn.addEventListener('click', () => setUnit('imperial'));
+  setUnit(unit);
+
+  // ---- sky fx ----
+  function clearFx(){ skyFx.innerHTML = ''; }
+  function renderClouds(count){
+    clearFx();
+    for(let i = 0; i < count; i++){
+      const c = document.createElement('div');
+      c.className = 'cloud';
+      const size = 60 + Math.random() * 100;
+      c.style.width = size + 'px';
+      c.style.height = size * 0.5 + 'px';
+      c.style.top = (Math.random() * 60) + 'vh';
+      c.style.animationDuration = (40 + Math.random() * 30) + 's';
+      c.style.animationDelay = (-Math.random() * 40) + 's';
+      skyFx.appendChild(c);
+    }
+  }
+  function renderRain(count){
+    clearFx();
+    for(let i = 0; i < count; i++){
+      const d = document.createElement('div');
+      d.className = 'raindrop';
+      d.style.left = (Math.random() * 100) + 'vw';
+      d.style.animationDuration = (0.5 + Math.random() * 0.6) + 's';
+      d.style.animationDelay = (-Math.random() * 2) + 's';
+      skyFx.appendChild(d);
+    }
+  }
+  function renderSnow(count){
+    clearFx();
+    for(let i = 0; i < count; i++){
+      const s = document.createElement('div');
+      s.className = 'snowflake';
+      s.style.left = (Math.random() * 100) + 'vw';
+      s.style.animationDuration = (4 + Math.random() * 4) + 's';
+      s.style.animationDelay = (-Math.random() * 6) + 's';
+      skyFx.appendChild(s);
+    }
+  }
+
+  function applyWeatherTheme(main, isNight){
+    const body = document.body;
+    body.className = '';
+    const key = (main || '').toLowerCase();
+    if(isNight && (key === 'clear' || key === 'clouds')){
+      body.classList.add('night');
+      renderClouds(key === 'clouds' ? 4 : 0);
+      return;
+    }
+    if(key === 'clear'){ body.classList.add('clear'); renderClouds(0); }
+    else if(key === 'clouds'){ body.classList.add('clouds'); renderClouds(6); }
+    else if(key === 'rain' || key === 'drizzle'){ body.classList.add('rain'); renderRain(60); }
+    else if(key === 'thunderstorm'){ body.classList.add('thunderstorm'); renderRain(80); }
+    else if(key === 'snow'){ body.classList.add('snow'); renderSnow(50); }
+    else if(key === 'mist' || key === 'fog' || key === 'haze'){ body.classList.add('mist'); renderClouds(3); }
+    else { body.classList.add('clear'); renderClouds(2); }
+  }
+
+  function unitLabel(){ return unit === 'metric' ? '°C' : '°F'; }
+  function speedLabel(){ return unit === 'metric' ? 'm/s' : 'mph'; }
+
+  async function fetchWeatherData(url){
+    const res = await fetch(url);
+    if(!res.ok){
+      if(res.status === 401){
+        throw new Error('That API key was rejected. Double-check it, or wait a few minutes — new OpenWeather keys can take a little time to activate.');
+      }
+      if(res.status === 404){
+        throw new Error("Couldn't find that city. Check the spelling and try again.");
+      }
+      throw new Error('Something went wrong fetching the weather (status ' + res.status + ').');
+    }
+    return res.json();
+  }
+
+  function renderCurrent(data){
+    document.getElementById('cityName').textContent = `${data.name}, ${data.sys.country}`;
+    document.getElementById('dateNow').textContent = new Date().toLocaleString(undefined, {
+      weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const icon = data.weather[0].icon;
+    document.getElementById('currentIcon').src = `https://openweathermap.org/img/wn/${icon}@2x.png`;
+    document.getElementById('currentIcon').alt = data.weather[0].description;
+    document.getElementById('currentTemp').textContent = Math.round(data.main.temp) + unitLabel();
+    document.getElementById('currentDesc').textContent = data.weather[0].description;
+    document.getElementById('feelsLike').textContent = Math.round(data.main.feels_like) + unitLabel();
+    document.getElementById('humidity').textContent = data.main.humidity + '%';
+    document.getElementById('wind').textContent = data.wind.speed + ' ' + speedLabel();
+    document.getElementById('pressure').textContent = data.main.pressure + ' hPa';
+
+    const now = Date.now() / 1000;
+    const isNight = now < data.sys.sunrise || now > data.sys.sunset;
+    applyWeatherTheme(data.weather[0].main, isNight);
+
+    currentCard.classList.add('show');
+  }
+
+  function renderForecast(data){
+    // group 3-hourly entries by date, pick midday-ish entry, compute hi/lo
+    const byDate = {};
+    data.list.forEach(item => {
+      const date = item.dt_txt.split(' ')[0];
+      if(!byDate[date]) byDate[date] = [];
+      byDate[date].push(item);
+    });
+
+    const grid = document.getElementById('forecastGrid');
+    grid.innerHTML = '';
+    const dates = Object.keys(byDate).slice(0, 5);
+
+    dates.forEach(date => {
+      const entries = byDate[date];
+      const temps = entries.map(e => e.main.temp);
+      const hi = Math.round(Math.max(...temps));
+      const lo = Math.round(Math.min(...temps));
+      const midday = entries.reduce((best, e) => {
+        const hour = parseInt(e.dt_txt.split(' ')[1].split(':')[0], 10);
+        const bestHour = parseInt(best.dt_txt.split(' ')[1].split(':')[0], 10);
+        return Math.abs(hour - 13) < Math.abs(bestHour - 13) ? e : best;
+      }, entries[0]);
+
+      const dayName = new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+
+      const card = document.createElement('div');
+      card.className = 'forecast-day';
+      card.innerHTML = `
+        <div class="day-name">${dayName}</div>
+        <img src="https://openweathermap.org/img/wn/${midday.weather[0].icon}.png" alt="${midday.weather[0].description}">
+        <div class="temps"><span class="hi">${hi}°</span><span class="lo">${lo}°</span></div>
+        <div class="desc">${midday.weather[0].description}</div>
+      `;
+      grid.appendChild(card);
+    });
+
+    forecastSection.classList.add('show');
+  }
+
+  async function fetchByCity(city){
+    if(!apiKey){ apiKeyBanner.style.display = 'block'; showStatus('Add your OpenWeather API key first.', 'error'); return; }
+    lastQuery = { type: 'city', value: city };
+    showStatus('Loading weather for ' + city + '…', 'loading');
+    try{
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=${unit}&appid=${apiKey}`;
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&units=${unit}&appid=${apiKey}`;
+      const [current, forecast] = await Promise.all([fetchWeatherData(weatherUrl), fetchWeatherData(forecastUrl)]);
+      renderCurrent(current);
+      renderForecast(forecast);
+      addRecent(current.name);
+      hideStatus();
+    }catch(err){
+      showStatus(err.message, 'error');
+      currentCard.classList.remove('show');
+      forecastSection.classList.remove('show');
+    }
+  }
+
+  async function fetchByCoords(lat, lon){
+    if(!apiKey){ apiKeyBanner.style.display = 'block'; showStatus('Add your OpenWeather API key first.', 'error'); return; }
+    lastQuery = { type: 'coords', value: { lat, lon } };
+    showStatus('Loading weather for your location…', 'loading');
+    try{
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${unit}&appid=${apiKey}`;
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${unit}&appid=${apiKey}`;
+      const [current, forecast] = await Promise.all([fetchWeatherData(weatherUrl), fetchWeatherData(forecastUrl)]);
+      renderCurrent(current);
+      renderForecast(forecast);
+      addRecent(current.name);
+      hideStatus();
+    }catch(err){
+      showStatus(err.message, 'error');
+    }
+  }
+
+  function refetch(){
+    if(!lastQuery) return;
+    if(lastQuery.type === 'city') fetchByCity(lastQuery.value);
+    else fetchByCoords(lastQuery.value.lat, lastQuery.value.lon);
+  }
+
+  document.getElementById('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const val = document.getElementById('cityInput').value.trim();
+    if(val) fetchByCity(val);
+  });
+
+  document.getElementById('geoBtn').addEventListener('click', () => {
+    if(!navigator.geolocation){
+      showStatus('Geolocation is not supported in this browser.', 'error');
+      return;
+    }
+    showStatus('Getting your location…', 'loading');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fetchByCoords(pos.coords.latitude, pos.coords.longitude),
+      () => showStatus('Could not get your location. Try searching a city instead.', 'error')
+    );
+  });
+
+  // default subtle sky animation before first search
+  renderClouds(3);
+})();
+</script>
+</body>
+</html>
